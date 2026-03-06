@@ -34,7 +34,7 @@ First install React Developer Tools for you browser and on settings pls check "H
 
 ### Non page-specific goals
 
-* [ ] add a sidebar for the navigation between to pages.
+* [ ] add a sidebar for the navigation between two pages.
 
 ### Timer page goals
 
@@ -47,5 +47,5 @@ First install React Developer Tools for you browser and on settings pls check "H
 * [ ] fix the re-renders
 * [ ] implement Redux
 * [ ] add pagination
-* [ ] when you search recordings, it generates random recordings which should not. At the first load of the page you must generate atleast 100 recording records. and use this records for your pagination and search to work
+* [ ] when you search recordings, it generates random recordings which should not. At the first load of the page you must generate atleast 100 recording records. and use these records for your pagination and search to work
 
