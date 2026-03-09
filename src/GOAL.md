@@ -46,6 +46,6 @@ First install React Developer Tools for you browser and on settings pls check "H
 
 * [ ] fix the re-renders
 * [ ] implement Redux
-* [ ] add pagination
+* [ ] add pagination with selectable page sizes (15, 30, 50), prev/next controls (disabled at the ends), and a visible range summary like "Showing 1-24 of 100 items"
 * [ ] when you search recordings, it generates random recordings which should not. At the first load of the page you must generate atleast 100 recording records. and use these records for your pagination and search to work
 
