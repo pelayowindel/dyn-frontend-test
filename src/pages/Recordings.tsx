@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  type RefObject,
+} from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -27,8 +33,8 @@ import {
 } from "../store/recordingsSelectors";
 import { useAppDispatch, useAppSelector } from "../store/hooks/hooks";
 
-// Small helpers
-function formatBytes(n?: number) {
+// Small helpers - memoize these
+const formatBytes = (n?: number) => {
   if (n == null) return "-";
   const units = ["B", "KB", "MB", "GB"];
   let v = n;
@@ -38,14 +44,14 @@ function formatBytes(n?: number) {
     i++;
   }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
+};
 
-function formatTime(sec: number) {
+const formatTime = (sec: number) => {
   if (!Number.isFinite(sec)) return "0:00";
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
-}
+};
 
 type RecordingsRowProps = {
   recording: Recording;
@@ -72,6 +78,21 @@ function RecordingsRow({
     ? duration
     : (recording.durationMs ?? 0) / 1000;
 
+  const handlePlayClick = useCallback(() => {
+    onTogglePlay(recording.id);
+  }, [recording.id, onTogglePlay]);
+
+  const handleSliderChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      const t = Number(e.target.value);
+      audio.currentTime = t;
+      onSeek(t);
+    },
+    [audioRef, onSeek],
+  );
+
   return (
     <>
       <tr className={isActive ? "bg-gray-50" : ""}>
@@ -93,7 +114,7 @@ function RecordingsRow({
         <td className="px-4 py-3">
           <button
             className="px-3 py-2 rounded-md border hover:bg-gray-50"
-            onClick={() => onTogglePlay(recording.id)}
+            onClick={handlePlayClick}
           >
             {isActive && isPlaying ? "Pause" : "Play"}
           </button>
@@ -115,13 +136,7 @@ function RecordingsRow({
               max={duration || 0}
               step={0.1}
               value={Math.min(currentTime, duration || 0)}
-              onChange={(e) => {
-                const audio = audioRef.current;
-                if (!audio) return;
-                const t = Number(e.target.value);
-                audio.currentTime = t;
-                onSeek(t);
-              }}
+              onChange={handleSliderChange}
               disabled={!duration}
             />
 
@@ -147,10 +162,10 @@ function RecordingsRow({
 export default function Recordings() {
   const dispatch = useAppDispatch();
   const [searchInput, setSearchInput] = useState("");
-  const [localCurrentTime, setLocalCurrentTime] = useState(0); // Local state
-  const [localDuration, setLocalDuration] = useState(0); // Local state
+  const [localCurrentTime, setLocalCurrentTime] = useState(0);
+  const [localDuration, setLocalDuration] = useState(0);
 
-  // Redux selectors - essential state only
+  // Redux selectors
   const loading = useAppSelector(selectLoading);
   const query = useAppSelector(selectQuery);
   const currentPage = useAppSelector(selectCurrentPage);
@@ -165,28 +180,30 @@ export default function Recordings() {
   const endIdx = useAppSelector(selectEndIdx);
   const activeItem = useAppSelector(selectActiveItem);
 
-  // Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastTimeUpdateRef = useRef(0);
 
-  async function loadData(nextQuery?: string) {
-    dispatch(setLoading(true));
-    try {
-      const res = await listRecordingsMock({
-        limit: 200,
-        q: nextQuery ?? query,
-      });
-      dispatch(setAllItems(res.items));
-      dispatch(setCurrentPage(1));
-    } finally {
-      dispatch(setLoading(false));
-    }
-  }
+  // ✅ Memoized load data function
+  const loadData = useCallback(
+    async (nextQuery?: string) => {
+      dispatch(setLoading(true));
+      try {
+        const res = await listRecordingsMock({
+          limit: 200,
+          q: nextQuery ?? query,
+        });
+        dispatch(setAllItems(res.items));
+        dispatch(setCurrentPage(1));
+      } finally {
+        dispatch(setLoading(false));
+      }
+    },
+    [dispatch, query],
+  );
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadData]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -211,7 +228,6 @@ export default function Recordings() {
       .catch(() => dispatch(setIsPlaying(false)));
   }, [activeItem, dispatch]);
 
-  // Wire audio events - NO Redux dispatch for time/duration
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -219,12 +235,12 @@ export default function Recordings() {
     const onTime = () => {
       const now = Date.now();
       if (now - lastTimeUpdateRef.current > 100) {
-        setLocalCurrentTime(audio.currentTime); // Local state only
+        setLocalCurrentTime(audio.currentTime);
         lastTimeUpdateRef.current = now;
       }
     };
 
-    const onMeta = () => setLocalDuration(audio.duration || 0); // Local state only
+    const onMeta = () => setLocalDuration(audio.duration || 0);
     const onPlay = () => dispatch(setIsPlaying(true));
     const onPause = () => dispatch(setIsPlaying(false));
     const onEnded = () => dispatch(setIsPlaying(false));
@@ -244,48 +260,61 @@ export default function Recordings() {
     };
   }, [dispatch]);
 
-  function togglePlay(id: string) {
-    const audio = audioRef.current;
-    if (!audio) return;
+  // ✅ Memoized handlers
+  const togglePlay = useCallback(
+    (id: string) => {
+      const audio = audioRef.current;
+      if (!audio) return;
 
-    if (activeId !== id) {
-      dispatch(setActiveId(id));
-      return;
-    }
+      if (activeId !== id) {
+        dispatch(setActiveId(id));
+        return;
+      }
 
-    if (audio.paused) audio.play();
-    else audio.pause();
-  }
+      if (audio.paused) audio.play();
+      else audio.pause();
+    },
+    [activeId, dispatch],
+  );
 
-  function stopPlayback() {
+  const stopPlayback = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return;
     audio.pause();
     audio.currentTime = 0;
     dispatch(resetPlayer());
-  }
+  }, [dispatch]);
 
-  const handlePageSizeChange = (newSize: number) => {
-    dispatch(setPageSize(newSize));
-    dispatch(setCurrentPage(1));
-  };
+  const handlePageSizeChange = useCallback(
+    (newSize: number) => {
+      dispatch(setPageSize(newSize));
+      dispatch(setCurrentPage(1));
+    },
+    [dispatch],
+  );
 
-  const handlePreviousPage = () => {
+  const handlePreviousPage = useCallback(() => {
     if (currentPage > 1) {
       dispatch(setCurrentPage(currentPage - 1));
     }
-  };
+  }, [currentPage, dispatch]);
 
-  const handleNextPage = () => {
+  const handleNextPage = useCallback(() => {
     if (currentPage < totalPages) {
       dispatch(setCurrentPage(currentPage + 1));
     }
-  };
+  }, [currentPage, totalPages, dispatch]);
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     dispatch(setQuery(searchInput));
     loadData(searchInput);
-  };
+  }, [searchInput, dispatch, loadData]);
+
+  const handleSeek = useCallback((time: number) => {
+    const audio = audioRef.current;
+    if (audio) audio.currentTime = time;
+    setLocalCurrentTime(time);
+  }, []);
 
   return (
     <section className="p-4">
@@ -382,11 +411,7 @@ export default function Recordings() {
                       duration={localDuration}
                       currentTime={localCurrentTime}
                       onTogglePlay={togglePlay}
-                      onSeek={(time) => {
-                        const audio = audioRef.current;
-                        if (audio) audio.currentTime = time;
-                        setLocalCurrentTime(time);
-                      }}
+                      onSeek={handleSeek}
                       audioRef={audioRef}
                     />
                   );
