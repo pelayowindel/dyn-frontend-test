@@ -8,12 +8,6 @@ import {
 } from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-} from "lucide-react";
-import {
   setAllItems,
   setLoading,
   setQuery,
@@ -38,7 +32,8 @@ import {
   selectActiveItem,
 } from "../store/recordingsSelectors";
 import { useAppDispatch, useAppSelector } from "../store/hooks/hooks";
-import SearchBar from "./RecordingSearchBar";
+import SearchBar from "../components/custom/Recordings/SearchBar";
+import Pagination from "../components/custom/Recordings/Pagination";
 
 // Small helpers
 const formatBytes = (n?: number) => {
@@ -359,34 +354,6 @@ export default function Recordings() {
     setLocalCurrentTime(time);
   }, []);
 
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
-
-    if (totalPages <= maxVisible) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      pages.push(1);
-
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-
-      if (start > 2) pages.push("...");
-
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      if (end < totalPages - 1) pages.push("...");
-
-      pages.push(totalPages);
-    }
-
-    return pages;
-  };
-
   return (
     <section className="p-4">
       <audio ref={audioRef} preload="metadata" />
@@ -421,7 +388,6 @@ export default function Recordings() {
         </div>
       </div>
 
-      {/* ✅ Separated SearchBar - won't re-render table/pagination on keystroke */}
       <SearchBar onSearch={handleSearch} disabled={loading} />
 
       {/* Table */}
@@ -462,8 +428,8 @@ export default function Recordings() {
                       recording={r}
                       isActive={isActive}
                       isPlaying={isPlaying}
-                      duration={localDuration}
-                      currentTime={localCurrentTime}
+                      duration={isActive ? localDuration : 0}
+                      currentTime={isActive ? localCurrentTime : 0}
                       onTogglePlay={togglePlay}
                       onSeek={handleSeek}
                       audioRef={audioRef}
@@ -474,92 +440,18 @@ export default function Recordings() {
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="mt-6 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <label htmlFor="page-size-select" className="text-sm font-medium">
-            Page size:
-          </label>
-          <select
-            id="page-size-select"
-            value={pageSize}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="px-3 py-2 border rounded-md"
-            disabled={loading}
-          >
-            <option value={15}>15</option>
-            <option value={30}>30</option>
-            <option value={50}>50</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* First page */}
-          <button
-            onClick={handleFirstPage}
-            disabled={currentPage === 1 || loading}
-            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="First page"
-          >
-            <ChevronsLeft size={20} />
-          </button>
-
-          {/* Previous page */}
-          <button
-            onClick={handlePreviousPage}
-            disabled={currentPage === 1 || loading}
-            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Previous page"
-          >
-            <ChevronLeft size={20} />
-          </button>
-
-          {/* Page shortcuts */}
-          <div className="flex items-center gap-1">
-            {getPageNumbers().map((page, idx) => (
-              <button
-                key={idx}
-                onClick={() => {
-                  if (typeof page === "number") {
-                    handleGoToPage(page);
-                  }
-                }}
-                disabled={page === "..." || currentPage === page || loading}
-                className={`min-w-10 rounded-md border px-2 py-1 text-sm font-medium transition ${
-                  currentPage === page
-                    ? "bg-blue-600 text-white border-blue-600"
-                    : page === "..."
-                      ? "cursor-default border-gray-200 bg-gray-50"
-                      : "hover:bg-gray-100"
-                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
-                title={page === "..." ? "More pages" : `Go to page ${page}`}
-              >
-                {page}
-              </button>
-            ))}
-          </div>
-
-          {/* Next page */}
-          <button
-            onClick={handleNextPage}
-            disabled={currentPage === totalPages || loading}
-            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Next page"
-          >
-            <ChevronRight size={20} />
-          </button>
-
-          {/* Last page */}
-          <button
-            onClick={handleLastPage}
-            disabled={currentPage === totalPages || loading}
-            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Last page"
-          >
-            <ChevronsRight size={20} />
-          </button>
-        </div>
-      </div>
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        loading={loading}
+        onFirstPage={handleFirstPage}
+        onPreviousPage={handlePreviousPage}
+        onNextPage={handleNextPage}
+        onLastPage={handleLastPage}
+        onGoToPage={handleGoToPage}
+        onPageSizeChange={handlePageSizeChange}
+      />
     </section>
   );
 }

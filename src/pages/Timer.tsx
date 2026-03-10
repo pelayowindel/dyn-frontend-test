@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import TimerCard from "../components/custom/TimerCard";
-import TimerFormModal from "../components/custom/TimeFormModal";
+import TimerCard from "../components/custom/Timer/TimerCard";
+import TimerFormModal from "../components/custom/Timer/TimeFormModal";
 
 interface Timer {
   id: string;
