@@ -1,6 +1,35 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  setAllItems,
+  setLoading,
+  setQuery,
+  setCurrentPage,
+  setPageSize,
+  setActiveId,
+  setIsPlaying,
+  setCurrentTime,
+  setDuration,
+  resetPlayer,
+} from "../store/recordingsSlice";
+import {
+  selectLoading,
+  selectQuery,
+  selectCurrentPage,
+  selectPageSize,
+  selectActiveId,
+  selectIsPlaying,
+  selectCurrentTime,
+  selectDuration,
+  selectPaginatedItems,
+  selectTotalItems,
+  selectTotalPages,
+  selectStartIdx,
+  selectEndIdx,
+  selectActiveItem,
+} from "../store/recordingsSelectors";
+import { useAppDispatch, useAppSelector } from "../store/hooks/hooks";
 
 // Small helpers
 function formatBytes(n?: number) {
@@ -120,32 +149,40 @@ function RecordingsRow({
 }
 
 export default function Recordings() {
-  const [allItems, setAllItems] = useState<Recording[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(24);
+  const dispatch = useAppDispatch();
 
-  // single global player
+  // Redux selectors
+  // const allItems = useAppSelector(selectAllItems);
+  const loading = useAppSelector(selectLoading);
+  const query = useAppSelector(selectQuery);
+  const currentPage = useAppSelector(selectCurrentPage);
+  const pageSize = useAppSelector(selectPageSize);
+  const activeId = useAppSelector(selectActiveId);
+  const isPlaying = useAppSelector(selectIsPlaying);
+  const currentTime = useAppSelector(selectCurrentTime);
+  const duration = useAppSelector(selectDuration);
+
+  const items = useAppSelector(selectPaginatedItems);
+  const totalItems = useAppSelector(selectTotalItems);
+  const totalPages = useAppSelector(selectTotalPages);
+  const startIdx = useAppSelector(selectStartIdx);
+  const endIdx = useAppSelector(selectEndIdx);
+  const activeItem = useAppSelector(selectActiveItem);
+
+  // Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-
-  const activeItem = allItems.find((x) => x.id === activeId) ?? null;
 
   async function loadData(nextQuery?: string) {
-    setLoading(true);
+    dispatch(setLoading(true));
     try {
       const res = await listRecordingsMock({
-        limit: 999,
+        limit: 200,
         q: nextQuery ?? query,
       });
-      setAllItems(res.items);
-      setCurrentPage(1);
+      dispatch(setAllItems(res.items));
+      dispatch(setCurrentPage(1));
     } finally {
-      setLoading(false);
+      dispatch(setLoading(false));
     }
   }
 
@@ -162,9 +199,9 @@ export default function Recordings() {
       audio.pause();
       audio.removeAttribute("src");
       audio.load();
-      setIsPlaying(false);
-      setCurrentTime(0);
-      setDuration(0);
+      dispatch(setIsPlaying(false));
+      dispatch(setCurrentTime(0));
+      dispatch(setDuration(0));
       return;
     }
 
@@ -173,20 +210,20 @@ export default function Recordings() {
 
     audio
       .play()
-      .then(() => setIsPlaying(true))
-      .catch(() => setIsPlaying(false));
-  }, [activeItem]);
+      .then(() => dispatch(setIsPlaying(true)))
+      .catch(() => dispatch(setIsPlaying(false)));
+  }, [activeItem, dispatch]);
 
-  // Wire audio events once
+  // Wire audio events
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onTime = () => setCurrentTime(audio.currentTime);
-    const onMeta = () => setDuration(audio.duration || 0);
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onEnded = () => setIsPlaying(false);
+    const onTime = () => dispatch(setCurrentTime(audio.currentTime));
+    const onMeta = () => dispatch(setDuration(audio.duration || 0));
+    const onPlay = () => dispatch(setIsPlaying(true));
+    const onPause = () => dispatch(setIsPlaying(false));
+    const onEnded = () => dispatch(setIsPlaying(false));
 
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
@@ -201,14 +238,14 @@ export default function Recordings() {
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
     };
-  }, []);
+  }, [dispatch]);
 
   function togglePlay(id: string) {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (activeId !== id) {
-      setActiveId(id);
+      dispatch(setActiveId(id));
       return;
     }
 
@@ -221,31 +258,23 @@ export default function Recordings() {
     if (!audio) return;
     audio.pause();
     audio.currentTime = 0;
-    setIsPlaying(false);
-    setCurrentTime(0);
+    dispatch(resetPlayer());
   }
 
-  // Pagination logic
-  const totalItems = allItems.length;
-  const totalPages = Math.ceil(totalItems / pageSize);
-  const startIdx = (currentPage - 1) * pageSize;
-  const endIdx = Math.min(startIdx + pageSize, totalItems);
-  const items = allItems.slice(startIdx, endIdx);
-
   const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
+    dispatch(setPageSize(newSize));
+    dispatch(setCurrentPage(1));
   };
 
   const handlePreviousPage = () => {
     if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
+      dispatch(setCurrentPage(currentPage - 1));
     }
   };
 
   const handleNextPage = () => {
     if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
+      dispatch(setCurrentPage(currentPage + 1));
     }
   };
 
@@ -289,7 +318,7 @@ export default function Recordings() {
           className="w-full px-3 py-2 border rounded-md"
           placeholder="Search title/agent/tags..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => dispatch(setQuery(e.target.value))}
           onKeyDown={(e) => {
             if (e.key === "Enter") loadData(e.currentTarget.value);
           }}
@@ -344,7 +373,7 @@ export default function Recordings() {
                       duration={duration}
                       currentTime={currentTime}
                       onTogglePlay={togglePlay}
-                      onSeek={setCurrentTime}
+                      onSeek={(time) => dispatch(setCurrentTime(time))}
                       audioRef={audioRef}
                     />
                   );
