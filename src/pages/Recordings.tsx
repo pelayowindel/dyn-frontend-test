@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   type RefObject,
+  memo,
 } from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
 import {
@@ -37,8 +38,9 @@ import {
   selectActiveItem,
 } from "../store/recordingsSelectors";
 import { useAppDispatch, useAppSelector } from "../store/hooks/hooks";
+import SearchBar from "./RecordingSearchBar";
 
-// Small helpers - memoize these
+// Small helpers
 const formatBytes = (n?: number) => {
   if (n == null) return "-";
   const units = ["B", "KB", "MB", "GB"];
@@ -69,104 +71,119 @@ type RecordingsRowProps = {
   audioRef: RefObject<HTMLAudioElement | null>;
 };
 
-function RecordingsRow({
-  recording,
-  isActive,
-  isPlaying,
-  duration,
-  currentTime,
-  onTogglePlay,
-  onSeek,
-  audioRef,
-}: RecordingsRowProps) {
-  const displayDuration = isActive
-    ? duration
-    : (recording.durationMs ?? 0) / 1000;
+const RecordingsRow = memo(
+  function RecordingsRow({
+    recording,
+    isActive,
+    isPlaying,
+    duration,
+    currentTime,
+    onTogglePlay,
+    onSeek,
+    audioRef,
+  }: RecordingsRowProps) {
+    const displayDuration = isActive
+      ? duration
+      : (recording.durationMs ?? 0) / 1000;
 
-  const handlePlayClick = useCallback(() => {
-    onTogglePlay(recording.id);
-  }, [recording.id, onTogglePlay]);
+    const handlePlayClick = useCallback(() => {
+      onTogglePlay(recording.id);
+    }, [recording.id, onTogglePlay]);
 
-  const handleSliderChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const audio = audioRef.current;
-      if (!audio) return;
-      const t = Number(e.target.value);
-      audio.currentTime = t;
-      onSeek(t);
-    },
-    [audioRef, onSeek],
-  );
+    const handleSliderChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const audio = audioRef.current;
+        if (!audio) return;
+        const t = Number(e.target.value);
+        audio.currentTime = t;
+        onSeek(t);
+      },
+      [audioRef, onSeek],
+    );
 
-  return (
-    <>
-      <tr className={isActive ? "bg-gray-50" : ""}>
-        <td className="px-4 py-3">
-          <div className="min-w-0">
-            <div className="font-semibold truncate">{recording.title}</div>
-            <div className="text-sm text-gray-500 truncate">
-              {recording.agent ?? "-"} -{" "}
-              {new Date(recording.createdAt).toLocaleString()}
-            </div>
-          </div>
-        </td>
-        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-          {formatBytes(recording.sizeBytes)}
-        </td>
-        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-          {formatTime(displayDuration)}
-        </td>
-        <td className="px-4 py-3">
-          <button
-            className="px-3 py-2 rounded-md border hover:bg-gray-50"
-            onClick={handlePlayClick}
-          >
-            {isActive && isPlaying ? "Pause" : "Play"}
-          </button>
-        </td>
-      </tr>
-
-      {isActive && (
-        <tr>
-          <td className="px-4 pb-4" colSpan={4}>
-            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-
-            <input
-              type="range"
-              className="w-full"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={Math.min(currentTime, duration || 0)}
-              onChange={handleSliderChange}
-              disabled={!duration}
-            />
-
-            {!!recording.tags?.length && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {recording.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="text-xs px-2 py-1 rounded-full border bg-gray-50"
-                  >
-                    {t}
-                  </span>
-                ))}
+    return (
+      <>
+        <tr className={isActive ? "bg-gray-50" : ""}>
+          <td className="px-4 py-3">
+            <div className="min-w-0">
+              <div className="font-semibold truncate">{recording.title}</div>
+              <div className="text-sm text-gray-500 truncate">
+                {recording.agent ?? "-"} -{" "}
+                {new Date(recording.createdAt).toLocaleString()}
               </div>
-            )}
+            </div>
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+            {formatBytes(recording.sizeBytes)}
+          </td>
+          <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+            {formatTime(displayDuration)}
+          </td>
+          <td className="px-4 py-3">
+            <button
+              className="px-3 py-2 rounded-md border hover:bg-gray-50"
+              onClick={handlePlayClick}
+            >
+              {isActive && isPlaying ? "Pause" : "Play"}
+            </button>
           </td>
         </tr>
-      )}
-    </>
-  );
-}
+
+        {isActive && (
+          <tr>
+            <td className="px-4 pb-4" colSpan={4}>
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+
+              <input
+                type="range"
+                className="w-full"
+                min={0}
+                max={duration || 0}
+                step={0.1}
+                value={Math.min(currentTime, duration || 0)}
+                onChange={handleSliderChange}
+                disabled={!duration}
+              />
+
+              {!!recording.tags?.length && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {recording.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="text-xs px-2 py-1 rounded-full border bg-gray-50"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </td>
+          </tr>
+        )}
+      </>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.recording.id === nextProps.recording.id &&
+      prevProps.isActive === nextProps.isActive &&
+      prevProps.isPlaying === nextProps.isPlaying &&
+      prevProps.duration === nextProps.duration &&
+      prevProps.currentTime === nextProps.currentTime &&
+      prevProps.audioRef === nextProps.audioRef &&
+      prevProps.onTogglePlay === nextProps.onTogglePlay &&
+      prevProps.onSeek === nextProps.onSeek
+    );
+  },
+);
+
+RecordingsRow.displayName = "RecordingsRow";
 
 export default function Recordings() {
   const dispatch = useAppDispatch();
-  const [searchInput, setSearchInput] = useState("");
   const [localCurrentTime, setLocalCurrentTime] = useState(0);
   const [localDuration, setLocalDuration] = useState(0);
 
@@ -188,7 +205,6 @@ export default function Recordings() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastTimeUpdateRef = useRef(0);
 
-  // ✅ Memoized load data function
   const loadData = useCallback(
     async (nextQuery?: string) => {
       dispatch(setLoading(true));
@@ -208,7 +224,11 @@ export default function Recordings() {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, []);
+
+  useEffect(() => {
+    loadData(query);
+  }, [query]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -265,7 +285,6 @@ export default function Recordings() {
     };
   }, [dispatch]);
 
-  // ✅ Memoized handlers
   const togglePlay = useCallback(
     (id: string) => {
       const audio = audioRef.current;
@@ -327,10 +346,12 @@ export default function Recordings() {
     [totalPages, dispatch],
   );
 
-  const handleSearch = useCallback(() => {
-    dispatch(setQuery(searchInput));
-    loadData(searchInput);
-  }, [searchInput, dispatch, loadData]);
+  const handleSearch = useCallback(
+    (searchQuery: string) => {
+      dispatch(setQuery(searchQuery));
+    },
+    [dispatch],
+  );
 
   const handleSeek = useCallback((time: number) => {
     const audio = audioRef.current;
@@ -338,7 +359,6 @@ export default function Recordings() {
     setLocalCurrentTime(time);
   }, []);
 
-  // ✅ Generate page numbers for shortcuts
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     const maxVisible = 5;
@@ -401,25 +421,8 @@ export default function Recordings() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="flex gap-2 mb-6">
-        <input
-          className="w-full px-3 py-2 border rounded-md"
-          placeholder="Search title/agent/tags..."
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSearch();
-          }}
-        />
-        <button
-          className="px-3 py-2 rounded-md border hover:bg-gray-50"
-          onClick={handleSearch}
-          disabled={loading}
-        >
-          Search
-        </button>
-      </div>
+      {/* ✅ Separated SearchBar - won't re-render table/pagination on keystroke */}
+      <SearchBar onSearch={handleSearch} disabled={loading} />
 
       {/* Table */}
       <div className="rounded-lg border bg-white overflow-hidden">

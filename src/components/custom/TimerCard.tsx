@@ -48,7 +48,6 @@ const TimerCard = memo(
       setStatus(timer.status);
     }, [timer]);
 
-    // ✅ Memoized callbacks
     const handlePlay = useCallback(() => {
       if (remainingSeconds > 0) {
         setStatus("running");

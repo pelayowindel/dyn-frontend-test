@@ -19,7 +19,6 @@ export default function Timer() {
   const secondsValue = Number(secondsInput);
   const isFormValid = Number.isFinite(secondsValue) && secondsValue > 0;
 
-  // ✅ Only handles form submission
   const handleSave = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -52,7 +51,6 @@ export default function Timer() {
     setDescriptionInput("");
   }, []);
 
-  // ✅ Only handles deletion
   const handleDelete = useCallback((id: string) => {
     setTimers((prev) => prev.filter((timer) => timer.id !== id));
   }, []);

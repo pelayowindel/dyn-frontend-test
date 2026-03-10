@@ -96,7 +96,6 @@ function makeMockRecordings(count: number): Recording[] {
   });
 }
 
-// ✅ Generate mock data ONCE and reuse it
 const MOCK_RECORDINGS = makeMockRecordings(100);
 
 export async function listRecordingsMock(params?: {
@@ -110,10 +109,7 @@ export async function listRecordingsMock(params?: {
   // emulate network jitter
   await new Promise((r) => setTimeout(r, randInt(250, 900)));
 
-  // ✅ Filter from the same pool every time
   let items = MOCK_RECORDINGS;
-
-  console.log(q);
 
   if (q) {
     items = items.filter((x) => {
