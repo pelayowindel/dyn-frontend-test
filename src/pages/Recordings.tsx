@@ -6,7 +6,12 @@ import {
   type RefObject,
 } from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import {
   setAllItems,
   setLoading,
@@ -189,7 +194,7 @@ export default function Recordings() {
       dispatch(setLoading(true));
       try {
         const res = await listRecordingsMock({
-          limit: 200,
+          limit: 100,
           q: nextQuery ?? query,
         });
         dispatch(setAllItems(res.items));
@@ -293,6 +298,10 @@ export default function Recordings() {
     [dispatch],
   );
 
+  const handleFirstPage = useCallback(() => {
+    dispatch(setCurrentPage(1));
+  }, [dispatch]);
+
   const handlePreviousPage = useCallback(() => {
     if (currentPage > 1) {
       dispatch(setCurrentPage(currentPage - 1));
@@ -305,6 +314,19 @@ export default function Recordings() {
     }
   }, [currentPage, totalPages, dispatch]);
 
+  const handleLastPage = useCallback(() => {
+    dispatch(setCurrentPage(totalPages));
+  }, [totalPages, dispatch]);
+
+  const handleGoToPage = useCallback(
+    (pageNum: number) => {
+      if (pageNum >= 1 && pageNum <= totalPages) {
+        dispatch(setCurrentPage(pageNum));
+      }
+    },
+    [totalPages, dispatch],
+  );
+
   const handleSearch = useCallback(() => {
     dispatch(setQuery(searchInput));
     loadData(searchInput);
@@ -315,6 +337,35 @@ export default function Recordings() {
     if (audio) audio.currentTime = time;
     setLocalCurrentTime(time);
   }, []);
+
+  // ✅ Generate page numbers for shortcuts
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    const maxVisible = 5;
+
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      if (start > 2) pages.push("...");
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (end < totalPages - 1) pages.push("...");
+
+      pages.push(totalPages);
+    }
+
+    return pages;
+  };
 
   return (
     <section className="p-4">
@@ -440,6 +491,17 @@ export default function Recordings() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* First page */}
+          <button
+            onClick={handleFirstPage}
+            disabled={currentPage === 1 || loading}
+            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="First page"
+          >
+            <ChevronsLeft size={20} />
+          </button>
+
+          {/* Previous page */}
           <button
             onClick={handlePreviousPage}
             disabled={currentPage === 1 || loading}
@@ -449,10 +511,32 @@ export default function Recordings() {
             <ChevronLeft size={20} />
           </button>
 
-          <span className="text-sm font-medium">
-            Page {currentPage} of {totalPages}
-          </span>
+          {/* Page shortcuts */}
+          <div className="flex items-center gap-1">
+            {getPageNumbers().map((page, idx) => (
+              <button
+                key={idx}
+                onClick={() => {
+                  if (typeof page === "number") {
+                    handleGoToPage(page);
+                  }
+                }}
+                disabled={page === "..." || currentPage === page || loading}
+                className={`min-w-10 rounded-md border px-2 py-1 text-sm font-medium transition ${
+                  currentPage === page
+                    ? "bg-blue-600 text-white border-blue-600"
+                    : page === "..."
+                      ? "cursor-default border-gray-200 bg-gray-50"
+                      : "hover:bg-gray-100"
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+                title={page === "..." ? "More pages" : `Go to page ${page}`}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
 
+          {/* Next page */}
           <button
             onClick={handleNextPage}
             disabled={currentPage === totalPages || loading}
@@ -460,6 +544,16 @@ export default function Recordings() {
             title="Next page"
           >
             <ChevronRight size={20} />
+          </button>
+
+          {/* Last page */}
+          <button
+            onClick={handleLastPage}
+            disabled={currentPage === totalPages || loading}
+            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Last page"
+          >
+            <ChevronsRight size={20} />
           </button>
         </div>
       </div>
