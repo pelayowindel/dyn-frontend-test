@@ -1,4 +1,4 @@
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
@@ -9,8 +9,6 @@ import {
   setPageSize,
   setActiveId,
   setIsPlaying,
-  setCurrentTime,
-  setDuration,
   resetPlayer,
 } from "../store/recordingsSlice";
 import {
@@ -20,8 +18,6 @@ import {
   selectPageSize,
   selectActiveId,
   selectIsPlaying,
-  selectCurrentTime,
-  selectDuration,
   selectPaginatedItems,
   selectTotalItems,
   selectTotalPages,
@@ -150,17 +146,17 @@ function RecordingsRow({
 
 export default function Recordings() {
   const dispatch = useAppDispatch();
+  const [searchInput, setSearchInput] = useState("");
+  const [localCurrentTime, setLocalCurrentTime] = useState(0); // Local state
+  const [localDuration, setLocalDuration] = useState(0); // Local state
 
-  // Redux selectors
-  // const allItems = useAppSelector(selectAllItems);
+  // Redux selectors - essential state only
   const loading = useAppSelector(selectLoading);
   const query = useAppSelector(selectQuery);
   const currentPage = useAppSelector(selectCurrentPage);
   const pageSize = useAppSelector(selectPageSize);
   const activeId = useAppSelector(selectActiveId);
   const isPlaying = useAppSelector(selectIsPlaying);
-  const currentTime = useAppSelector(selectCurrentTime);
-  const duration = useAppSelector(selectDuration);
 
   const items = useAppSelector(selectPaginatedItems);
   const totalItems = useAppSelector(selectTotalItems);
@@ -171,6 +167,7 @@ export default function Recordings() {
 
   // Audio ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastTimeUpdateRef = useRef(0);
 
   async function loadData(nextQuery?: string) {
     dispatch(setLoading(true));
@@ -200,8 +197,8 @@ export default function Recordings() {
       audio.removeAttribute("src");
       audio.load();
       dispatch(setIsPlaying(false));
-      dispatch(setCurrentTime(0));
-      dispatch(setDuration(0));
+      setLocalCurrentTime(0);
+      setLocalDuration(0);
       return;
     }
 
@@ -214,13 +211,20 @@ export default function Recordings() {
       .catch(() => dispatch(setIsPlaying(false)));
   }, [activeItem, dispatch]);
 
-  // Wire audio events
+  // Wire audio events - NO Redux dispatch for time/duration
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    const onTime = () => dispatch(setCurrentTime(audio.currentTime));
-    const onMeta = () => dispatch(setDuration(audio.duration || 0));
+    const onTime = () => {
+      const now = Date.now();
+      if (now - lastTimeUpdateRef.current > 100) {
+        setLocalCurrentTime(audio.currentTime); // Local state only
+        lastTimeUpdateRef.current = now;
+      }
+    };
+
+    const onMeta = () => setLocalDuration(audio.duration || 0); // Local state only
     const onPlay = () => dispatch(setIsPlaying(true));
     const onPause = () => dispatch(setIsPlaying(false));
     const onEnded = () => dispatch(setIsPlaying(false));
@@ -278,6 +282,11 @@ export default function Recordings() {
     }
   };
 
+  const handleSearch = () => {
+    dispatch(setQuery(searchInput));
+    loadData(searchInput);
+  };
+
   return (
     <section className="p-4">
       <audio ref={audioRef} preload="metadata" />
@@ -317,15 +326,15 @@ export default function Recordings() {
         <input
           className="w-full px-3 py-2 border rounded-md"
           placeholder="Search title/agent/tags..."
-          value={query}
-          onChange={(e) => dispatch(setQuery(e.target.value))}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") loadData(e.currentTarget.value);
+            if (e.key === "Enter") handleSearch();
           }}
         />
         <button
           className="px-3 py-2 rounded-md border hover:bg-gray-50"
-          onClick={() => loadData(query)}
+          onClick={handleSearch}
           disabled={loading}
         >
           Search
@@ -370,10 +379,14 @@ export default function Recordings() {
                       recording={r}
                       isActive={isActive}
                       isPlaying={isPlaying}
-                      duration={duration}
-                      currentTime={currentTime}
+                      duration={localDuration}
+                      currentTime={localCurrentTime}
                       onTogglePlay={togglePlay}
-                      onSeek={(time) => dispatch(setCurrentTime(time))}
+                      onSeek={(time) => {
+                        const audio = audioRef.current;
+                        if (audio) audio.currentTime = time;
+                        setLocalCurrentTime(time);
+                      }}
                       audioRef={audioRef}
                     />
                   );
@@ -385,8 +398,11 @@ export default function Recordings() {
       {/* Pagination */}
       <div className="mt-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium">Page size:</label>
+          <label htmlFor="page-size-select" className="text-sm font-medium">
+            Page size:
+          </label>
           <select
+            id="page-size-select"
             value={pageSize}
             onChange={(e) => handlePageSizeChange(Number(e.target.value))}
             className="px-3 py-2 border rounded-md"

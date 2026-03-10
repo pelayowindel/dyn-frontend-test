@@ -18,7 +18,7 @@ const initialState: RecordingsState = {
   loading: false,
   query: "",
   currentPage: 1,
-  pageSize: 24,
+  pageSize: 30,
   activeId: null,
   isPlaying: false,
   currentTime: 0,
