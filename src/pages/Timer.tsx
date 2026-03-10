@@ -1,41 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import TimerCard from "../components/custom/TimerCard";
 import TimerFormModal from "../components/custom/TimeFormModal";
+
+interface Timer {
+  id: string;
+  seconds: number;
+  remainingSeconds: number;
+  description: string;
+  status: "ready" | "running" | "paused" | "finished";
+}
 
 export default function Timer() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [secondsInput, setSecondsInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
-  const [timers, setTimers] = useState<
-    Array<{
-      id: string;
-      seconds: number;
-      remainingSeconds: number;
-      description: string;
-      status: "ready" | "running" | "paused" | "finished";
-    }>
-  >([]);
+  const [timers, setTimers] = useState<Timer[]>([]);
 
   const secondsValue = Number(secondsInput);
   const isFormValid = Number.isFinite(secondsValue) && secondsValue > 0;
 
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      setTimers((prev) =>
-        prev.map((timer) => {
-          if (timer.status !== "running") return timer;
-          const nextRemaining = timer.remainingSeconds - 1;
-          if (nextRemaining <= 0) {
-            return { ...timer, remainingSeconds: 0, status: "finished" };
-          }
-          return { ...timer, remainingSeconds: nextRemaining };
-        }),
-      );
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
+  // ✅ Only handles form submission
   const handleSave = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -44,6 +28,7 @@ export default function Timer() {
 
       const description = descriptionInput.trim();
       const id = crypto.randomUUID();
+
       setTimers((prev) => [
         ...prev,
         {
@@ -51,9 +36,10 @@ export default function Timer() {
           seconds,
           remainingSeconds: seconds,
           description,
-          status: "ready",
+          status: "ready" as const,
         },
       ]);
+
       setSecondsInput("");
       setDescriptionInput("");
       setIsModalOpen(false);
@@ -66,38 +52,7 @@ export default function Timer() {
     setDescriptionInput("");
   }, []);
 
-  const handlePlay = useCallback((id: string) => {
-    setTimers((prev) =>
-      prev.map((timer) =>
-        timer.id === id && timer.remainingSeconds > 0
-          ? { ...timer, status: "running" }
-          : timer,
-      ),
-    );
-  }, []);
-
-  const handlePause = useCallback((id: string) => {
-    setTimers((prev) =>
-      prev.map((timer) =>
-        timer.id === id ? { ...timer, status: "paused" } : timer,
-      ),
-    );
-  }, []);
-
-  const handleStop = useCallback((id: string) => {
-    setTimers((prev) =>
-      prev.map((timer) =>
-        timer.id === id
-          ? {
-              ...timer,
-              remainingSeconds: timer.seconds,
-              status: "ready",
-            }
-          : timer,
-      ),
-    );
-  }, []);
-
+  // ✅ Only handles deletion
   const handleDelete = useCallback((id: string) => {
     setTimers((prev) => prev.filter((timer) => timer.id !== id));
   }, []);
@@ -109,14 +64,16 @@ export default function Timer() {
   }, []);
 
   return (
-    <div>
-      <h1 className="p-0 text-2xl font-bold mb-6">Timers</h1>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Timers</h1>
+
       <button
         onClick={() => setIsModalOpen(true)}
-        className="mb-6 rounded-md bg-blue-600 px-4 py-2 text-white font-medium"
+        className="mb-6 rounded-md bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700"
       >
         + Create Timer
       </button>
+
       <TimerFormModal
         isOpen={isModalOpen}
         secondsInput={secondsInput}
@@ -136,9 +93,6 @@ export default function Timer() {
           <TimerCard
             key={timer.id}
             timer={timer}
-            onPlay={handlePlay}
-            onPause={handlePause}
-            onStop={handleStop}
             onDelete={handleDelete}
             formatTime={formatTime}
           />
