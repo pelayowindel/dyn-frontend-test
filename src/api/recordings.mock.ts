@@ -71,17 +71,15 @@ function randomId() {
   return crypto.randomUUID();
 }
 
-/**
- * Generate a list of random recordings.
- * Note: duration/file size are mock values (not extracted from the MP3).
- */
 function makeMockRecordings(count: number): Recording[] {
   return Array.from({ length: count }).map((_, i) => {
-    const durationMs = randInt(20_000, 6 * 60_000);        // 20s - 6min
-    const sizeBytes = randInt(400_000, 18_000_000);        // ~0.4MB - 18MB
+    const durationMs = randInt(20_000, 6 * 60_000);
+    const sizeBytes = randInt(400_000, 18_000_000);
 
     const tags = Array.from(
-      new Set(Array.from({ length: randInt(0, 3) }).map(() => pick(sampleTags)))
+      new Set(
+        Array.from({ length: randInt(0, 3) }).map(() => pick(sampleTags)),
+      ),
     );
 
     return {
@@ -98,12 +96,12 @@ function makeMockRecordings(count: number): Recording[] {
   });
 }
 
-/**
- * Emulates: GET /recordings?limit=&cursor=&q=
- */
+// ✅ Generate mock data ONCE and reuse it
+const MOCK_RECORDINGS = makeMockRecordings(100);
+
 export async function listRecordingsMock(params?: {
   limit?: number;
-  cursor?: string; // not truly implemented; just emulated
+  cursor?: string;
   q?: string;
 }): Promise<ListRecordingsResponse> {
   const limit = params?.limit ?? 30;
@@ -112,17 +110,19 @@ export async function listRecordingsMock(params?: {
   // emulate network jitter
   await new Promise((r) => setTimeout(r, randInt(250, 900)));
 
-  // generate a larger pool then filter + slice
-  let items = makeMockRecordings(Math.max(limit, 60));
+  // ✅ Filter from the same pool every time
+  let items = MOCK_RECORDINGS;
+
+  console.log(q);
 
   if (q) {
     items = items.filter((x) => {
-      const haystack = `${x.title} ${x.agent ?? ""} ${(x.tags ?? []).join(" ")}`.toLowerCase();
+      const haystack =
+        `${x.title} ${x.agent ?? ""} ${(x.tags ?? []).join(" ")}`.toLowerCase();
       return haystack.includes(q);
     });
   }
 
-  // crude cursor emulation (not stable; good enough for UI dev)
   const nextCursor = Math.random() > 0.65 ? String(Date.now()) : undefined;
 
   return {
