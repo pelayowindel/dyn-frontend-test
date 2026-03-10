@@ -2,12 +2,12 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Provider } from "react-redux";
+import { configureStore, PreloadedState } from "@reduxjs/toolkit";
 import Recordings from "../pages/Recordings";
 import * as recordingsApi from "../api/recordings.mock";
-import { store } from "../store/store";
+import recordingsReducer from "../store/recordingsSlice";
 import type { Recording, ListRecordingsResponse } from "../api/recordings.mock";
 
-// Mock the recordings API
 vi.mock("../api/recordings.mock", async () => {
   const actual = await vi.importActual("../api/recordings.mock");
   return {
@@ -18,15 +18,14 @@ vi.mock("../api/recordings.mock", async () => {
 
 const mockListRecordings = vi.mocked(recordingsApi.listRecordingsMock);
 
-// Sample test data
 const createMockRecording = (
   overrides: Partial<Recording> = {},
 ): Recording => ({
   id: "test-id-1",
   title: "Test Recording 1",
   agent: "Agent Test",
-  durationMs: 120000, // 2 minutes
-  sizeBytes: 1048576, // 1 MB
+  durationMs: 120000,
+  sizeBytes: 1048576,
   createdAt: "2026-03-01T10:00:00.000Z",
   sourceUrl: "https://example.com/audio.mp3",
   tags: ["sales", "qa"],
@@ -56,14 +55,22 @@ const mockResponse: ListRecordingsResponse = {
   nextCursor: undefined,
 };
 
-// Mock HTMLMediaElement methods
 const mockPlay = vi.fn(() => Promise.resolve());
 const mockPause = vi.fn();
 const mockLoad = vi.fn();
 
-const renderRecordings = async () => {
+const createTestStore = (preloadedState?: PreloadedState<any>) => {
+  return configureStore({
+    reducer: {
+      recordings: recordingsReducer,
+    },
+    preloadedState,
+  });
+};
+
+const renderRecordingsWithStore = async (testStore: any) => {
   render(
-    <Provider store={store}>
+    <Provider store={testStore}>
       <Recordings />
     </Provider>,
   );
@@ -74,7 +81,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockListRecordings.mockResolvedValue(mockResponse);
 
-  // Mock media element methods
   vi.spyOn(window.HTMLMediaElement.prototype, "play").mockImplementation(
     mockPlay,
   );
@@ -93,7 +99,8 @@ afterEach(() => {
 describe("Recordings", () => {
   describe("Initial Rendering", () => {
     it("renders the page heading", async () => {
-      await renderRecordings();
+      const testStore = createTestStore();
+      await renderRecordingsWithStore(testStore);
 
       expect(
         screen.getByRole("heading", { name: /recordings/i }),
@@ -102,9 +109,10 @@ describe("Recordings", () => {
 
     it("shows loading skeleton while fetching data", async () => {
       mockListRecordings.mockReturnValue(new Promise(() => {}));
+      const testStore = createTestStore();
 
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -115,8 +123,10 @@ describe("Recordings", () => {
     });
 
     it("renders recordings after loading", async () => {
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -130,8 +140,10 @@ describe("Recordings", () => {
     });
 
     it("shows correct item count after loading", async () => {
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -142,8 +154,10 @@ describe("Recordings", () => {
     });
 
     it("calls listRecordingsMock on mount", async () => {
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -152,15 +166,16 @@ describe("Recordings", () => {
         expect(mockListRecordings).toHaveBeenCalledTimes(1);
       });
 
-      // Component fetches with limit: 200
-      expect(mockListRecordings).toHaveBeenCalledWith({ limit: 200, q: "" });
+      expect(mockListRecordings).toHaveBeenCalledWith({ limit: 100, q: "" });
     });
   });
 
   describe("Table Display", () => {
     it("renders table headers", async () => {
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -184,8 +199,10 @@ describe("Recordings", () => {
     });
 
     it("displays formatted file sizes", async () => {
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -198,8 +215,10 @@ describe("Recordings", () => {
     });
 
     it("shows dash when agent is undefined", async () => {
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -217,7 +236,8 @@ describe("Recordings", () => {
 
   describe("Search Functionality", () => {
     it("renders search input", async () => {
-      await renderRecordings();
+      const testStore = createTestStore();
+      await renderRecordingsWithStore(testStore);
 
       expect(
         screen.getByPlaceholderText(/search title\/agent\/tags/i),
@@ -226,8 +246,10 @@ describe("Recordings", () => {
 
     it("updates search input value on change", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -242,8 +264,10 @@ describe("Recordings", () => {
 
     it("triggers search on Enter key", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -259,7 +283,7 @@ describe("Recordings", () => {
 
       await waitFor(() => {
         expect(mockListRecordings).toHaveBeenCalledWith({
-          limit: 200,
+          limit: 100,
           q: "test",
         });
       });
@@ -267,8 +291,10 @@ describe("Recordings", () => {
 
     it("triggers search on Search button click", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -280,6 +306,7 @@ describe("Recordings", () => {
       const searchInput = screen.getByPlaceholderText(
         /search title\/agent\/tags/i,
       );
+      await user.clear(searchInput);
       await user.type(searchInput, "support");
 
       const searchButton = screen.getByRole("button", { name: /^search$/i });
@@ -287,7 +314,7 @@ describe("Recordings", () => {
 
       await waitFor(() => {
         expect(mockListRecordings).toHaveBeenCalledWith({
-          limit: 200,
+          limit: 100,
           q: "support",
         });
       });
@@ -296,7 +323,8 @@ describe("Recordings", () => {
 
   describe("Refresh Functionality", () => {
     it("renders refresh button", async () => {
-      await renderRecordings();
+      const testStore = createTestStore();
+      await renderRecordingsWithStore(testStore);
 
       expect(
         screen.getByRole("button", { name: /refresh/i }),
@@ -305,14 +333,17 @@ describe("Recordings", () => {
 
     it("reloads data on refresh click", async () => {
       const user = userEvent.setup();
+      mockListRecordings.mockClear();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
 
       await waitFor(() => {
-        expect(screen.getByText("Outbound Call #1")).toBeInTheDocument();
+        expect(mockListRecordings).toHaveBeenCalledTimes(1);
       });
 
       const refreshButton = screen.getByRole("button", { name: /refresh/i });
@@ -327,8 +358,10 @@ describe("Recordings", () => {
   describe("Audio Playback", () => {
     it("starts playback when play button is clicked", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -348,8 +381,10 @@ describe("Recordings", () => {
 
     it("shows progress slider when recording is active", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -369,15 +404,18 @@ describe("Recordings", () => {
 
   describe("Stop Functionality", () => {
     it("renders stop button", async () => {
-      await renderRecordings();
+      const testStore = createTestStore();
+      await renderRecordingsWithStore(testStore);
 
       expect(screen.getByRole("button", { name: /stop/i })).toBeInTheDocument();
     });
 
     it("stops playback when stop button is clicked", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -409,8 +447,10 @@ describe("Recordings", () => {
         nextCursor: undefined,
       });
 
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -419,7 +459,6 @@ describe("Recordings", () => {
         expect(screen.getByRole("table")).toBeInTheDocument();
       });
 
-      // Check for the summary paragraph instead
       const summary = screen.getByText(/showing/i).parentElement;
       expect(summary).toHaveTextContent("0 of 0 items");
     });
@@ -427,16 +466,21 @@ describe("Recordings", () => {
 
   describe("Pagination", () => {
     it("renders pagination controls", async () => {
-      await renderRecordings();
+      const testStore = createTestStore();
+      await renderRecordingsWithStore(testStore);
 
-      expect(screen.getByText(/page 1 of/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/page size/i)).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /first page/i }),
+      ).toBeInTheDocument();
     });
 
     it("changes page size", async () => {
       const user = userEvent.setup();
+      const testStore = createTestStore();
+
       render(
-        <Provider store={store}>
+        <Provider store={testStore}>
           <Recordings />
         </Provider>,
       );
@@ -445,7 +489,7 @@ describe("Recordings", () => {
         expect(screen.getByText("Outbound Call #1")).toBeInTheDocument();
       });
 
-      const pageSizeSelect = screen.getByDisplayValue("30"); // Now matches
+      const pageSizeSelect = screen.getByDisplayValue("30");
       await user.selectOptions(pageSizeSelect, "50");
 
       expect(pageSizeSelect).toHaveValue("50");

@@ -222,7 +222,9 @@ export default function Recordings() {
   }, []);
 
   useEffect(() => {
-    loadData(query);
+    if (query) {
+      loadData(query);
+    }
   }, [query]);
 
   useEffect(() => {
