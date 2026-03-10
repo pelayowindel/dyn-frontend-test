@@ -56,6 +56,7 @@ export default function Timer() {
       ]);
       setSecondsInput("");
       setDescriptionInput("");
+      setIsModalOpen(false);
     },
     [secondsInput, descriptionInput],
   );
