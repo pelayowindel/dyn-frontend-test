@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { listRecordingsMock, type Recording } from "../api/recordings.mock";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Small helpers
 function formatBytes(n?: number) {
@@ -42,7 +43,9 @@ function RecordingsRow({
   onSeek,
   audioRef,
 }: RecordingsRowProps) {
-  const displayDuration = isActive ? duration : (recording.durationMs ?? 0) / 1000;
+  const displayDuration = isActive
+    ? duration
+    : (recording.durationMs ?? 0) / 1000;
 
   return (
     <>
@@ -117,9 +120,11 @@ function RecordingsRow({
 }
 
 export default function Recordings() {
-  const [items, setItems] = useState<Recording[]>([]);
+  const [allItems, setAllItems] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(24);
 
   // single global player
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -128,13 +133,17 @@ export default function Recordings() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
 
-  const activeItem = items.find((x) => x.id === activeId) ?? null;
+  const activeItem = allItems.find((x) => x.id === activeId) ?? null;
 
   async function loadData(nextQuery?: string) {
     setLoading(true);
     try {
-      const res = await listRecordingsMock({ limit: 24, q: nextQuery ?? query });
-      setItems(res.items);
+      const res = await listRecordingsMock({
+        limit: 999,
+        q: nextQuery ?? query,
+      });
+      setAllItems(res.items);
+      setCurrentPage(1);
     } finally {
       setLoading(false);
     }
@@ -200,7 +209,7 @@ export default function Recordings() {
 
     if (activeId !== id) {
       setActiveId(id);
-      return; // effect will load + play
+      return;
     }
 
     if (audio.paused) audio.play();
@@ -216,7 +225,29 @@ export default function Recordings() {
     setCurrentTime(0);
   }
 
-  const showingCount = items.length;
+  // Pagination logic
+  const totalItems = allItems.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, totalItems);
+  const items = allItems.slice(startIdx, endIdx);
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
 
   return (
     <section className="p-4">
@@ -226,7 +257,9 @@ export default function Recordings() {
         <div>
           <h1 className="p-0 text-2xl font-bold">Recordings</h1>
           <p className="text-sm text-gray-500">
-            Showing {loading ? "..." : showingCount} items
+            {loading
+              ? "..."
+              : `Showing ${startIdx + 1}-${endIdx} of ${totalItems} items`}
           </p>
         </div>
 
@@ -319,8 +352,47 @@ export default function Recordings() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      <div className="mt-6 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Page size:</label>
+          <select
+            value={pageSize}
+            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            className="px-3 py-2 border rounded-md"
+            disabled={loading}
+          >
+            <option value={15}>15</option>
+            <option value={30}>30</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePreviousPage}
+            disabled={currentPage === 1 || loading}
+            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Previous page"
+          >
+            <ChevronLeft size={20} />
+          </button>
+
+          <span className="text-sm font-medium">
+            Page {currentPage} of {totalPages}
+          </span>
+
+          <button
+            onClick={handleNextPage}
+            disabled={currentPage === totalPages || loading}
+            className="p-2 rounded-md border hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Next page"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
-
-
