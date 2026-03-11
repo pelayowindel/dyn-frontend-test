@@ -25,13 +25,19 @@ export const selectPaginatedItems = (state: RootState) => {
   return allItems.slice(startIdx, endIdx);
 };
 
-export const selectStartIdx = (state: RootState) =>
-  (state.recordings.currentPage - 1) * state.recordings.pageSize;
+export const selectStartIdx = (state: RootState) => {
+  const { currentPage, pageSize, allItems } = state.recordings;
+  if (allItems.length === 0) return 0;
+  // Return 1-based index (1, 31, 61, etc.)
+  return (currentPage - 1) * pageSize + 1;
+};
 
 export const selectEndIdx = (state: RootState) => {
   const { currentPage, pageSize, allItems } = state.recordings;
-  const startIdx = (currentPage - 1) * pageSize;
-  return Math.min(startIdx + pageSize, allItems.length);
+  if (allItems.length === 0) return 0;
+  // Return actual end index (30, 60, 90, etc.)
+  const endIdx = currentPage * pageSize;
+  return Math.min(endIdx, allItems.length);
 };
 
 export const selectActiveItem = (state: RootState) =>

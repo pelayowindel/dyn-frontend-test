@@ -218,14 +218,8 @@ export default function Recordings() {
   );
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  useEffect(() => {
-    if (query) {
-      loadData(query);
-    }
-  }, [query]);
+    loadData(query);
+  }, [query, loadData]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -366,7 +360,9 @@ export default function Recordings() {
           <p className="text-sm text-gray-500">
             {loading
               ? "..."
-              : `Showing ${startIdx + 1}-${endIdx} of ${totalItems} items`}
+              : totalItems === 0
+                ? "Showing 0 of 0 items"
+                : `Showing ${startIdx}-${endIdx} of ${totalItems} items`}
           </p>
         </div>
 
