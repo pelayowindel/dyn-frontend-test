@@ -1,9 +1,13 @@
-import { Link, Outlet } from 'react-router-dom'
+import { Outlet } from "react-router-dom";
+import Sidebar from "../components/custom/SideBar";
 
 export default function Layout() {
   return (
-    <div style={{ padding: '1.5rem' }}>
-      <Outlet />
+    <div className="flex">
+      <Sidebar />
+      <main className="ml-64 flex-1" style={{ padding: "1.5rem" }}>
+        <Outlet />
+      </main>
     </div>
-  )
+  );
 }
